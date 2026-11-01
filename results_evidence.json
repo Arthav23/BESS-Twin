@@ -1,0 +1,103 @@
+{
+ "evidence": {
+  "spec": [
+   {
+    "I_A": 0.56,
+    "Tamb_C": 23.0,
+    "spec_min_Ah": 2.7,
+    "model_Ah": 2.800077777779045,
+    "Tmax_C": 23.192060399634318,
+    "verdict": "model >= spec minimum"
+   },
+   {
+    "I_A": 2.8,
+    "Tamb_C": 23.0,
+    "spec_min_Ah": 2.6,
+    "model_Ah": 2.8000000000000163,
+    "Tmax_C": 27.002725118581886,
+    "verdict": "model >= spec minimum"
+   },
+   {
+    "I_A": 10.0,
+    "Tamb_C": 23.0,
+    "spec_min_Ah": 2.55,
+    "model_Ah": 2.800000000000278,
+    "Tmax_C": 52.88376690689043,
+    "verdict": "model >= spec minimum"
+   },
+   {
+    "I_A": 15.0,
+    "Tamb_C": 23.0,
+    "spec_min_Ah": 2.5,
+    "model_Ah": 2.799999999999921,
+    "Tmax_C": 71.14640125368311,
+    "verdict": "model >= spec minimum"
+   },
+   {
+    "I_A": 20.0,
+    "Tamb_C": 23.0,
+    "spec_min_Ah": 2.5,
+    "model_Ah": 2.8013888888890075,
+    "Tmax_C": 87.71887174707983,
+    "verdict": "model >= spec minimum"
+   },
+   {
+    "I_A": 2.8,
+    "Tamb_C": 45.0,
+    "spec_min_Ah": 2.6,
+    "model_Ah": 2.8000000000000163,
+    "Tmax_C": 48.1923247101051,
+    "verdict": "model >= spec minimum"
+   },
+   {
+    "I_A": 2.8,
+    "Tamb_C": 0.0,
+    "spec_min_Ah": 2.1,
+    "model_Ah": 2.8000000000000163,
+    "Tmax_C": 5.1603745766605025,
+    "verdict": "model >= spec minimum"
+   }
+  ],
+  "indep_056": {
+   "measured_Ah": [
+    2.745,
+    2.787
+   ],
+   "model_Ah": 2.800077777779045
+  },
+  "at_25A": {
+   "Ah": 2.79166666666673,
+   "Tmax_C": 104.29772825743875,
+   "t_s": 402.0
+  },
+  "spec_min_capacity_runs": {
+   "Ablation 2a": {
+    "t25": 545.75,
+    "Wh25": 130.51350377811374,
+    "T25": 51.67154062238254,
+    "t40": 310.5,
+    "Wh40": 81.93538440139321,
+    "T40": 60.02498319548587,
+    "r40": "hot-cell limit",
+    "t_eol": 415.75,
+    "Wh_eol": 97.8562858917314,
+    "R5": true,
+    "R11": false
+   },
+   "R-B": {
+    "t25": 670.25,
+    "Wh25": 166.59139560414312,
+    "T25": 46.38523307580153,
+    "t40": 670.25,
+    "Wh40": 169.11363119431087,
+    "T40": 59.0094669833934,
+    "r40": "capacity exhausted",
+    "t_eol": 540.75,
+    "Wh_eol": 128.0949371922305,
+    "R5": true,
+    "R11": true
+   }
+  },
+  "cycle_life": "spec: >= 80 % capacity after 500 cycles at 10 A, 23 C; review of the spec: 400 cycles to 80 % at 20 A"
+ }
+}

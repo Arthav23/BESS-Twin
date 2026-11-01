@@ -1,0 +1,40 @@
+{
+ "_comment": "Final candidates after the checker loop. R-A fixes R11 and C2 by adding a fifth parallel cell. R-B also closes C4 with a low-loss BMS and pays for it by dropping active balancing, which no requirement depends on. R-C is the cheaper point the automatic search found on the trade-off front.",
+ "sensitivity_for": "R-B 4S5P low-loss",
+ "designs": {
+  "2a 4S4P (v2 pick)": {
+   "cell": "Molicel P28A",
+   "NS": 4,
+   "NP": 4,
+   "busbar": "CuNi",
+   "cooling": "liquid",
+   "bal": "active"
+  },
+  "R-A 4S5P": {
+   "cell": "Molicel P28A",
+   "NS": 4,
+   "NP": 5,
+   "busbar": "CuNi",
+   "cooling": "liquid",
+   "bal": "active"
+  },
+  "R-B 4S5P low-loss": {
+   "cell": "Molicel P28A",
+   "NS": 4,
+   "NP": 5,
+   "busbar": "CuNi",
+   "cooling": "liquid",
+   "bal": "passive",
+   "bms": "lowloss"
+  },
+  "R-C 4S5P Ni low-loss": {
+   "cell": "Molicel P28A",
+   "NS": 4,
+   "NP": 5,
+   "busbar": "Ni",
+   "cooling": "liquid",
+   "bal": "passive",
+   "bms": "lowloss"
+  }
+ }
+}

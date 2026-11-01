@@ -1,0 +1,962 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>BESS-Twin Module Checker</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Sans+Condensed:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+/* Direction: an engineering test report, not a product page. Drafting-paper background, flat sheets with
+   hairline rules, numbered sections, datasheet tables, mono for every measured value. The one strong visual
+   is the 3D module in a dark CAD-style viewport. Design A cobalt, design B teal, heat in signal orange. */
+:root {
+  --paper: #ecede8; --sheet: #fbfbf8; --ink: #15181c; --muted: #575e66; --rule: #c9ccc4; --rule-2: #dfe1db; --field: #ffffff;
+  --a: #2347c5; --b: #0a7a73; --heat: #d9480f; --accent: #2347c5; --grid: rgba(21,24,28,0.045);
+  --pass: #1d7a3e; --pass-bg: #dcefe1; --warn: #8a5a00; --warn-bg: #f6e7c4; --marg: #a8430b; --marg-bg: #f8e0cf;
+  --fail: #b3202a; --fail-bg: #f6d9db; --na: #6a7078; --na-bg: #e6e7e2;
+  --bench1: #1a1f26; --bench2: #0e1115;
+  --display: "IBM Plex Sans Condensed", "Arial Narrow", system-ui, sans-serif;
+  --body: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --paper: #0e1012; --sheet: #15181b; --ink: #e6e8e3; --muted: #9ba1a8; --rule: #2d3238; --rule-2: #22262b; --field: #101316;
+    --a: #7f9bff; --b: #3fc0b6; --heat: #ff7a3d; --accent: #7f9bff; --grid: rgba(255,255,255,0.03);
+    --pass: #5cc98a; --pass-bg: #15301f; --warn: #e3b341; --warn-bg: #352a10; --marg: #f59e4b; --marg-bg: #3a2414;
+    --fail: #f1777c; --fail-bg: #3a191c; --na: #9ba1a8; --na-bg: #22262b; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --paper: #0e1012; --sheet: #15181b; --ink: #e6e8e3; --muted: #9ba1a8; --rule: #2d3238; --rule-2: #22262b; --field: #101316;
+  --a: #7f9bff; --b: #3fc0b6; --heat: #ff7a3d; --accent: #7f9bff; --grid: rgba(255,255,255,0.03);
+  --pass: #5cc98a; --pass-bg: #15301f; --warn: #e3b341; --warn-bg: #352a10; --marg: #f59e4b; --marg-bg: #3a2414;
+  --fail: #f1777c; --fail-bg: #3a191c; --na: #9ba1a8; --na-bg: #22262b; color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body { color: var(--ink); font: 14px/1.5 var(--body); background-color: var(--paper);
+  background-image: linear-gradient(var(--grid) 1px, transparent 1px), linear-gradient(90deg, var(--grid) 1px, transparent 1px);
+  background-size: 24px 24px; }
+.wrap { max-width: 1240px; margin: 0 auto; padding: 22px 20px 56px; display: grid; gap: 16px; }
+h1, h2, h3 { font-family: var(--display); text-wrap: balance; margin: 0; }
+h1 { font-weight: 600; font-size: 26px; line-height: 1.15; letter-spacing: -0.01em; }
+h1 small { font: 400 15px var(--body); color: var(--muted); margin-left: 10px; letter-spacing: 0; }
+h2 { font-weight: 600; font-size: 17px; line-height: 1.25; display: flex; align-items: baseline; gap: 10px; }
+h2 .n { font: 500 12px var(--mono); color: var(--muted); border: 1px solid var(--rule); padding: 1px 6px; border-radius: 2px; }
+.sub { color: var(--muted); font-size: 13px; }
+.mono, .num { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+.panel { background: var(--sheet); border: 1px solid var(--rule); border-radius: 3px; padding: 0 16px 16px; display: grid; gap: 12px; min-width: 0; align-content: start; }
+.panel-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 16px;
+  margin: 0 -16px; padding: 11px 16px; border-bottom: 1px solid var(--rule); }
+.strip { display: flex; flex-wrap: wrap; gap: 10px 18px; align-items: end; }
+.field { display: grid; gap: 3px; }
+.field label { font-size: 12px; color: var(--muted); }
+input[type=number], select { font: 13px var(--mono); color: var(--ink); background: var(--field); border: 1px solid var(--rule);
+  border-radius: 2px; padding: 5px 7px; min-width: 0; }
+input[type=number] { width: 84px; }
+select { width: 100%; }
+input:focus-visible, select:focus-visible, button:focus-visible, a:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+button { font: 500 13px var(--body); color: var(--ink); background: var(--field); border: 1px solid var(--ink); border-radius: 2px;
+  padding: 6px 11px; cursor: pointer; }
+button:hover { background: var(--rule-2); }
+button:active { transform: translateY(1px); }
+.seg { display: inline-flex; border: 1px solid var(--ink); border-radius: 2px; overflow: hidden; }
+.seg button { border: 0; border-radius: 0; background: var(--field); padding: 6px 11px; }
+.seg button + button { border-left: 1px solid var(--ink); }
+.seg button[aria-pressed="true"] { background: var(--ink); color: var(--sheet); }
+.designs { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+@media (max-width: 860px) { .designs { grid-template-columns: 1fr; } }
+.design { border-top: 4px solid var(--c); }
+.design[data-k="A"] { --c: var(--a); } .design[data-k="B"] { --c: var(--b); }
+.design .tag { display: inline-grid; place-items: center; width: 24px; height: 24px; border-radius: 2px; background: var(--c); color: #fff;
+  font: 600 13px var(--mono); flex: none; }
+.design .title { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.design .title select { font: 500 14px var(--body); }
+.cfg { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px 10px; }
+@media (max-width: 480px) { .cfg { grid-template-columns: 1fr 1fr; } }
+.cfg .field input { width: 100%; }
+.split { display: grid; grid-template-columns: minmax(0, 1fr) 220px; gap: 14px; align-items: start; }
+@media (max-width: 520px) { .split { grid-template-columns: 1fr; } }
+dl.kpi { display: grid; grid-template-columns: max-content minmax(0, 1fr); margin: 0; font-size: 13px; border-top: 1px solid var(--rule-2); }
+dl.kpi dt, dl.kpi dd { padding: 4px 0; border-bottom: 1px solid var(--rule-2); }
+dl.kpi dt { color: var(--muted); padding-right: 12px; }
+dl.kpi dd { margin: 0; font-family: var(--mono); font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.layout-fig { display: grid; gap: 4px; }
+.viewport { position: relative; border-radius: 2px; background: radial-gradient(120% 90% at 50% 15%, var(--bench1), var(--bench2)); border: 1px solid #000; }
+.viewport::before, .viewport::after { content: ""; position: absolute; width: 10px; height: 10px; border-color: rgba(255,255,255,0.35); border-style: solid; pointer-events: none; }
+.viewport::before { left: 6px; top: 6px; border-width: 1px 0 0 1px; } .viewport::after { right: 6px; bottom: 6px; border-width: 0 1px 1px 0; }
+.layout-fig canvas { display: block; width: 100%; height: 190px; cursor: grab; touch-action: none; }
+.layout-fig canvas:active, .stage canvas:active { cursor: grabbing; }
+.layout-fig .cap { font-size: 11px; color: var(--muted); }
+.pill { display: inline-block; font: 600 11px/1 var(--mono); letter-spacing: 0.02em; padding: 4px 6px; border-radius: 2px; white-space: nowrap; }
+.PASS { color: var(--pass); background: var(--pass-bg); } .WARN { color: var(--warn); background: var(--warn-bg); }
+.MARGINAL { color: var(--marg); background: var(--marg-bg); } .FAIL { color: var(--fail); background: var(--fail-bg); }
+.NA { color: var(--na); background: var(--na-bg); }
+.summary { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; font-size: 12px; color: var(--muted); }
+.charts { display: grid; gap: 8px; }
+.chartbox { position: relative; width: 100%; }
+.chartbox canvas { width: 100%; display: block; border: 1px solid var(--rule-2); background: var(--field); }
+.legend { display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: 12px; color: var(--muted); }
+.legend i { display: inline-block; width: 18px; height: 3px; vertical-align: middle; margin-right: 5px; }
+.tablewrap { overflow-x: auto; }
+table { border-collapse: collapse; width: 100%; font-size: 13px; }
+th, td { text-align: left; padding: 7px 8px; border-bottom: 1px solid var(--rule-2); vertical-align: top; }
+thead th { font-weight: 600; color: var(--muted); font-size: 12px; white-space: nowrap; border-bottom: 1px solid var(--ink); }
+td .why { display: block; color: var(--muted); font-size: 12px; font-family: var(--mono); margin-top: 3px; }
+td.rid { font-family: var(--mono); white-space: nowrap; }
+.cols2 { display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr); gap: 16px; }
+@media (max-width: 960px) { .cols2 { grid-template-columns: 1fr; } }
+.tagASM { color: var(--marg); } .tagDS { color: var(--pass); } .tagcal { color: var(--a); font-weight: 600; }
+.note { font-size: 12.5px; color: var(--muted); max-width: 80ch; margin: 0; }
+.status { font: 12px var(--mono); color: var(--muted); min-height: 1.4em; }
+.filelabel { display: inline-flex; align-items: center; gap: 8px; }
+input[type=file] { font-size: 12px; max-width: 240px; color: var(--muted); }
+.bar { position: relative; height: 16px; background: var(--rule-2); min-width: 140px; }
+.bar > span { position: absolute; inset: 0 auto 0 0; background: var(--pass); }
+.bar > em { position: absolute; right: 6px; top: 0; font: 500 12px/16px var(--mono); font-style: normal; color: var(--ink); }
+#cS { cursor: crosshair; }
+
+/* navigation */
+.topnav { background: var(--sheet); border-bottom: 2px solid var(--ink); }
+.topnav .in { max-width: 1240px; margin: 0 auto; padding: 0 20px; display: flex; align-items: stretch; justify-content: space-between; gap: 12px; }
+.brand { display: flex; align-items: baseline; gap: 8px; padding: 12px 0; font: 700 19px var(--display); color: var(--ink); text-decoration: none; letter-spacing: -0.01em; }
+.brand .ver { font: 400 12px var(--mono); color: var(--muted); }
+.brand .mark { display: inline-block; width: 9px; height: 15px; border: 1.5px solid var(--ink); border-radius: 1px; position: relative; top: 2px; margin-right: 2px;
+  background: linear-gradient(0deg, var(--heat) 0 55%, transparent 55%); }
+.navlinks { display: flex; }
+.navlinks a { display: flex; align-items: center; padding: 0 14px; font: 500 13px var(--body); color: var(--muted); text-decoration: none; border-bottom: 3px solid transparent; margin-bottom: -2px; }
+.navlinks a[aria-current="page"] { color: var(--ink); border-bottom-color: var(--heat); }
+[hidden] { display: none !important; }
+
+/* home */
+.home { gap: 26px; }
+.hero { display: grid; grid-template-columns: minmax(0, 0.85fr) minmax(0, 1.15fr); gap: 28px; align-items: start; padding-top: 18px; }
+@media (max-width: 920px) { .hero { grid-template-columns: 1fr; } }
+.hero h1 { font: 700 clamp(36px, 5.2vw, 60px)/0.98 var(--display); letter-spacing: -0.025em; margin: 0 0 16px; }
+.hero h1 em { font-style: normal; color: var(--heat); }
+.hero .lead { font-size: 16px; line-height: 1.55; color: var(--muted); max-width: 50ch; margin: 0 0 20px; }
+.hero .meta { font: 12px/1.6 var(--mono); color: var(--muted); margin: 18px 0 0; border-top: 1px solid var(--rule); padding-top: 10px; max-width: 50ch; }
+.ctas { display: flex; flex-wrap: wrap; gap: 10px; }
+.cta { display: inline-flex; align-items: center; gap: 8px; font: 600 14px var(--body); text-decoration: none; padding: 10px 16px; border-radius: 2px;
+  border: 1px solid var(--ink); color: var(--ink); background: var(--field); }
+.cta.primary { background: var(--ink); color: var(--sheet); }
+.cta:hover { background: var(--rule-2); } .cta.primary:hover { background: var(--a); border-color: var(--a); color: #fff; }
+.stage { display: grid; border: 1px solid var(--ink); background: var(--sheet); }
+.stage .viewport { border: 0; border-bottom: 1px solid var(--ink); }
+.stage canvas { display: block; width: 100%; height: 380px; cursor: grab; touch-action: none; }
+.stage .vlabel { position: absolute; left: 14px; top: 11px; color: #aeb6c0; font: 11.5px/1.5 var(--mono); pointer-events: none; }
+.instr { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); font: 12px var(--mono); }
+.instr > div { padding: 8px 12px; border-right: 1px solid var(--rule); }
+.instr > div:last-child { border-right: 0; }
+.instr span { display: block; color: var(--muted); font-size: 11px; }
+.instr b { font: 500 18px var(--mono); font-variant-numeric: tabular-nums; }
+.track { height: 3px; background: var(--rule-2); grid-column: 1 / -1; }
+.track > span { display: block; height: 100%; width: 0; background: var(--heat); }
+.sheet2 { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); gap: 16px; }
+@media (max-width: 920px) { .sheet2 { grid-template-columns: 1fr; } }
+table.spec th { font-weight: 400; color: var(--muted); width: 42%; border-bottom: 1px solid var(--rule-2); white-space: normal; font-size: 13px; }
+table.spec td { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+table.spec tr.grp th { font: 600 12px var(--body); color: var(--ink); padding-top: 12px; border-bottom: 1px solid var(--ink); }
+table.log td:nth-child(3) { white-space: nowrap; }
+.flow { width: 100%; height: auto; display: block; }
+.flow text { font-family: var(--mono); font-size: 12px; fill: var(--ink); }
+.flow .lbl { font-family: var(--display); font-size: 15px; font-weight: 600; }
+.flow .muted { fill: var(--muted); font-size: 11px; }
+.flow rect { fill: var(--field); stroke: var(--ink); stroke-width: 1; }
+.flow rect.hot { stroke: var(--heat); stroke-width: 1.5; }
+.flow path { fill: none; stroke: var(--ink); stroke-width: 1; }
+.flow path.back { stroke: var(--heat); stroke-dasharray: 4 3; }
+.fine { font-size: 12px; color: var(--muted); }
+.footnote { border-left: 3px solid var(--heat); padding: 4px 0 4px 14px; max-width: 95ch; }
+.footnote p { margin: 0; font-size: 13.5px; color: var(--muted); }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; scroll-behavior: auto !important; } }
+</style>
+</head>
+<body>
+<nav class="topnav" aria-label="Main"><div class="in">
+  <a class="brand" href="#home"><span class="mark" aria-hidden="true"></span>BESS-Twin <span class="ver">v3.0</span></a>
+  <div class="navlinks"><a href="#home" id="nav-home">Overview</a><a href="#checker" id="nav-checker">Module checker</a></div>
+</div></nav>
+
+<main id="view-home" class="wrap home">
+  <section class="hero">
+    <div>
+      <h1>Check a battery module <em>before</em> you build it.</h1>
+      <p class="lead">Choose the cell, the series and parallel count, busbar, cooling, balancing and BMS. BESS-Twin runs the duty cycle at 25&nbsp;°C, on a 40&nbsp;°C day and at end of life. It checks 12 requirements and 12 interface rules, and links each result to the bench test that would confirm it.</p>
+      <div class="ctas"><a class="cta primary" href="#checker">Open the module checker</a><a class="cta" href="#how" id="to-how">How it works</a></div>
+      <p class="meta">TELIPORT Season 4 · Case Study 2<br>Worked example: a 14.4&nbsp;V burst-power module for a heavy-lift drone or a hybrid-vehicle auxiliary supply. Duty cycle M1: 140&nbsp;A for 20&nbsp;s every 300&nbsp;s on a 60&nbsp;A base load.</p>
+    </div>
+    <figure class="stage" style="margin:0">
+      <div class="viewport">
+        <canvas id="hero3d" aria-label="Rotating 3D model of module R-B, with cells coloured by simulated temperature during a 40 °C mission"></canvas>
+        <div class="vlabel">R-B · 4S5P Molicel P28A · Cu-Ni busbar · liquid cold plates<br>40 °C ambient · duty cycle M1 · drag to rotate</div>
+      </div>
+      <div class="instr" aria-live="off">
+        <div><span>time</span><b id="ro-t">0</b> s</div>
+        <div><span>hot cell</span><b id="ro-T">40.0</b> °C</div>
+        <div><span>module voltage</span><b id="ro-V">–</b> V</div>
+        <div><span>cell limit</span><b>60.0</b> °C</div>
+        <div class="track"><span id="ro-bar"></span></div>
+      </div>
+    </figure>
+  </section>
+
+  <section class="sheet2">
+    <div class="panel">
+      <div class="panel-head"><h2><span class="n">01</span>Recommended module R-B</h2><span class="sub">computed live</span></div>
+      <table class="spec" id="spec"><tbody></tbody></table>
+    </div>
+    <div class="panel">
+      <div class="panel-head"><h2><span class="n">02</span>Search and confidence</h2><span class="sub">document §5.8, §5.9</span></div>
+      <table class="spec"><tbody>
+        <tr class="grp"><th colspan="2">Every combination at 4S</th></tr>
+        <tr><th>Designs checked</th><td>480</td></tr>
+        <tr><th>Meet every requirement</th><td>7, all 4S5P P28A with liquid cooling</td></tr>
+        <tr><th>Also free of warnings</th><td>3</td></tr>
+        <tr><th>On the cost, mass and margin front</th><td>2: R-B and R-C</td></tr>
+        <tr class="grp"><th colspan="2">300 random draws of every assumption</th></tr>
+        <tr><th>R-B meets R3, R5 and R11</th><td>100 %</td></tr>
+        <tr><th>R-B finishes the 40 °C mission</th><td>79 %</td></tr>
+        <tr><th>R-C, nickel busbar, ₹1,068 cheaper</th><td>64 %</td></tr>
+        <tr><th>v2 pick meets all four</th><td>0.7 %</td></tr>
+      </tbody></table>
+    </div>
+  </section>
+
+  <section class="panel">
+    <div class="panel-head"><h2><span class="n">03</span>What the checker caught</h2><span class="sub">each row is re-run by this page with the same rules as the Python engine</span></div>
+    <div class="tablewrap"><table class="log" id="log"><thead><tr><th scope="col">Design</th><th scope="col">Rule</th><th scope="col">Verdict</th><th scope="col">Result against the limit</th><th scope="col">What it led to</th></tr></thead><tbody></tbody></table></div>
+  </section>
+
+  <section class="panel" id="how" tabindex="-1">
+    <div class="panel-head"><h2><span class="n">04</span>How it works</h2><span class="sub">one tagged parameter set, shared by every model</span></div>
+    <div class="tablewrap">
+    <svg class="flow" viewBox="0 0 1000 232" role="img" aria-label="Flow: configure, simulate, check, trace, decide; bench tests feed calibrated values back into the simulation" style="min-width:760px">
+      <defs><marker id="ah" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L8,4 L0,8 z" style="fill:currentColor;stroke:none"/></marker></defs>
+      <g>
+        <rect x="6" y="20" width="172" height="86"/><text class="lbl" x="18" y="44">Configure</text>
+        <text class="muted" x="18" y="64">cell library (DS)</text><text class="muted" x="18" y="79">NS × NP, busbar</text><text class="muted" x="18" y="94">cooling, BMS, duty</text>
+        <rect x="210" y="20" width="172" height="86"/><text class="lbl" x="222" y="44">Simulate</text>
+        <text class="muted" x="222" y="64">electro-thermal, PCM</text><text class="muted" x="222" y="79">cell-spread MC</text><text class="muted" x="222" y="94">end of life, size</text>
+        <rect x="414" y="20" width="172" height="86"/><text class="lbl" x="426" y="44">Check</text>
+        <text class="muted" x="426" y="64">12 requirements</text><text class="muted" x="426" y="79">12 interface rules</text><text class="muted" x="426" y="94">&lt; 3 K = MARGINAL</text>
+        <rect x="618" y="20" width="172" height="86"/><text class="lbl" x="630" y="44">Trace</text>
+        <text class="muted" x="630" y="64">requirement → part</text><text class="muted" x="630" y="79">→ assumption → model</text><text class="muted" x="630" y="94">→ result → test needed</text>
+        <rect x="822" y="20" width="172" height="86"/><text class="lbl" x="834" y="44">Decide</text>
+        <text class="muted" x="834" y="64">search 480 designs</text><text class="muted" x="834" y="79">probability of passing</text><text class="muted" x="834" y="94">recommend + risks</text>
+        <g style="color:var(--ink)"><path d="M178,63 H206" marker-end="url(#ah)"/><path d="M382,63 H410" marker-end="url(#ah)"/><path d="M586,63 H614" marker-end="url(#ah)"/><path d="M790,63 H818" marker-end="url(#ah)"/></g>
+        <rect class="hot" x="414" y="150" width="376" height="60"/><text class="lbl" x="426" y="174">Bench day</text>
+        <text class="muted" x="426" y="194">T1–T7 · ESP32 logger · calibrate.py</text>
+        <g style="color:var(--heat)"><path class="back" d="M414,180 H296 V110" marker-end="url(#ah)"/><path class="back" d="M906,106 V180 H794" marker-end="url(#ah)"/></g>
+        <text class="muted" x="404" y="226" text-anchor="end">calib.json: measured values replace assumptions</text>
+        <text class="muted" x="800" y="226">risk ranking picks the tests</text>
+      </g>
+    </svg>
+    </div>
+  </section>
+
+  <section class="panel">
+    <div class="panel-head"><h2><span class="n">05</span>Package contents</h2></div>
+    <div class="tablewrap"><table><thead><tr><th scope="col">File</th><th scope="col">What it is</th></tr></thead><tbody>
+      <tr><td class="mono">bess_platform.py</td><td>The engine. Pure Python, no installs. Runs any design file, the 480-design search, the uncertainty study and the check against published P28A data.</td></tr>
+      <tr><td class="mono">bess_dashboard.html</td><td>This page. The same engine in the browser, parity-tested against the Python one on 202 numbers, the search and the uncertainty study. Works offline.</td></tr>
+      <tr><td class="mono">bench/</td><td>Bench test guide, ESP32 logger firmware and wiring, and <span class="mono">calibrate.py</span>, which fits the model to the logs and writes a calibration file this page can load.</td></tr>
+      <tr><td class="mono">configs/</td><td>Design files for the exploration and the final candidates.</td></tr>
+      <tr><td class="mono">BESS-Twin_Design_Document.md</td><td>Requirements, models, every result, the checker, traceability, safety, validation plan, business case, limitations and sources.</td></tr>
+      <tr><td class="mono">INTERVIEW_KIT.md</td><td>Interview script, timed usability tasks and pricing questions.</td></tr>
+    </tbody></table></div>
+  </section>
+
+  <div class="footnote"><p><strong style="color:var(--ink)">Where the evidence stands.</strong> Every result is simulated or checked against published data. At 0.56&nbsp;A the model is within 2&nbsp;% of four independently tested P28A cells, and R-B still passes with the manufacturer's minimum guaranteed capacity. Our own bench day and user sessions have not been run yet, so assumption-based values keep their tag until they are measured.</p></div>
+  <p class="fine">Costs are small-quantity list prices converted at ₹95 per US dollar (assumption, ±30&nbsp;%). The cost limit R7 is ₹19,000.</p>
+</main>
+
+<main id="view-checker" class="wrap" hidden>
+  <header>
+    <div>
+      <h1>Module checker <small>two designs, one mission, every requirement</small></h1>
+      <div class="sub">Pick two designs, change the mission, and see temperature, energy, end of life, mass, cost, size and every rule check update. Same equations as <span class="mono">bess_platform.py</span> v3.0 (parity-tested).</div>
+    </div>
+    <div class="status" id="status" role="status" aria-live="polite"></div>
+  </header>
+
+  <section class="panel" aria-labelledby="mission-h">
+    <div class="panel-head"><h2 id="mission-h"><span class="n">1</span>Mission and conditions</h2>
+      <span class="sub">Default M1: 140 A for 20 s at the start of every 300 s, 60 A in between, until a limit trips</span></div>
+    <div class="strip">
+      <div class="field"><label for="m-burst">Burst current (A)</label><input id="m-burst" type="number" min="1" max="400" step="5" value="140"></div>
+      <div class="field"><label for="m-base">Base current (A)</label><input id="m-base" type="number" min="0" max="400" step="5" value="60"></div>
+      <div class="field"><label for="m-bs">Burst length (s)</label><input id="m-bs" type="number" min="1" max="600" step="5" value="20"></div>
+      <div class="field"><label for="m-ps">Period (s)</label><input id="m-ps" type="number" min="2" max="3600" step="10" value="300"></div>
+      <div class="field"><label for="p-sink">Coolant above ambient (K)</label><input id="p-sink" type="number" min="0" max="20" step="1" value="5"></div>
+      <div class="field"><label for="p-f">Worst-cell current factor</label>
+        <select id="p-f"><option value="auto">Auto (Monte Carlo p95)</option><option value="1.00">1.00</option><option value="1.10">1.10</option>
+        <option value="1.15">1.15</option><option value="1.20">1.20</option></select></div>
+      <div class="field"><label id="view-l">Curves show</label>
+        <div class="seg" role="group" aria-labelledby="view-l" id="view">
+          <button type="button" data-v="25" aria-pressed="true">25 °C</button>
+          <button type="button" data-v="40" aria-pressed="false">40 °C</button>
+          <button type="button" data-v="eol" aria-pressed="false">End of life</button>
+        </div></div>
+    </div>
+  </section>
+
+  <div class="designs" id="designs"></div>
+
+  <section class="panel" aria-labelledby="curves-h">
+    <div class="panel-head"><h2 id="curves-h"><span class="n">2</span>Hot-cell temperature and module voltage through the mission</h2>
+      <div class="legend" id="legend"></div></div>
+    <div class="charts">
+      <div class="chartbox"><canvas id="cT" height="260" aria-label="Hot-cell temperature against time for designs A and B"></canvas></div>
+      <div class="chartbox"><canvas id="cV" height="150" aria-label="Module voltage against time for designs A and B"></canvas></div>
+    </div>
+    <p class="note">The hot-cell line is the module temperature plus the extra rise of the worst parallel cell. A run ends at the hot-cell limit, the 2.5 V per cell cutoff, or an empty cell. The dashed lines are the derate threshold and the limit.</p>
+  </section>
+
+  <section class="panel" aria-labelledby="checks-h">
+    <div class="panel-head"><h2 id="checks-h"><span class="n">3</span>Requirement and rule checks</h2>
+      <button type="button" id="copy-review">Copy design review, A against B</button>
+      <span class="sub">FAIL breaks a requirement or hard limit. MARGINAL passes with less than 3 K margin, which is inside model uncertainty. WARN is an interface risk that needs evidence.</span></div>
+    <div id="review-box" hidden><p class="note">Copying was blocked by the browser. Select the text below and copy it.</p>
+      <textarea id="review-out" rows="10" style="width:100%;font:12px var(--mono);border:1px solid var(--rule);background:var(--field);color:var(--ink);padding:8px" aria-label="Design review text"></textarea></div>
+    <div class="tablewrap"><table id="checks"><thead><tr><th scope="col">Rule</th><th scope="col">What is checked</th><th scope="col">Design A</th><th scope="col">Design B</th></tr></thead><tbody></tbody></table></div>
+  </section>
+
+
+  <section class="panel" aria-labelledby="search-h">
+    <div class="panel-head"><h2 id="search-h"><span class="n">4</span>Search every design</h2>
+      <div class="strip"><button type="button" id="run-search">Search all 480 combinations</button></div></div>
+    <p class="note">Every combination of cell, 3 to 6 cells in parallel, busbar, cooling, balancing and BMS power path, at 4S, through the same checker and the mission above. Click a dot to load that design into A.</p>
+    <div class="cols2">
+      <div class="chartbox"><canvas id="cS" height="300" aria-label="Cost against mass for every searched design, coloured by verdict"></canvas>
+        <div class="legend" id="search-legend"></div></div>
+      <div>
+        <div class="summary" id="search-summary"></div>
+        <div class="tablewrap"><table id="front"><thead><tr><th scope="col">Trade-off front (no FAIL, no WARN)</th><th scope="col">Cost</th><th scope="col">Mass</th><th scope="col">40 °C margin</th><th scope="col"></th></tr></thead><tbody></tbody></table></div>
+        <div class="tablewrap"><table id="failcount"><thead><tr><th scope="col">Rule</th><th scope="col">Designs it rules out</th></tr></thead><tbody></tbody></table></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="panel" aria-labelledby="uq-h">
+    <div class="panel-head"><h2 id="uq-h"><span class="n">5</span>Confidence: design A under uncertainty</h2>
+      <div class="strip"><button type="button" id="run-uq">Run 300 samples</button></div></div>
+    <p class="note">Every assumption is drawn at random inside its plausible range (coolant offset 3–7 K, cooling strength ±25 %, cell resistance ±10 %, cell spread 5–11 %, polarization, heat capacity and more), and the default mission is re-run at 25 °C, 40 °C and end of life. The bars are the share of samples that pass.</p>
+    <div class="cols2">
+      <div class="tablewrap"><table id="uq"><thead><tr><th scope="col">Requirement</th><th scope="col">Probability of passing</th></tr></thead><tbody></tbody></table>
+        <div class="summary" id="uq-drivers"></div></div>
+      <div class="chartbox"><canvas id="cU" height="220" aria-label="Histogram of the 40 °C hot-cell peak across samples"></canvas></div>
+    </div>
+  </section>
+  <div class="cols2">
+    <section class="panel" aria-labelledby="trace-h">
+      <div class="panel-head"><h2 id="trace-h"><span class="n">6</span>Traceability, design A</h2><span class="sub">requirement → component → assumption → model → result → evidence still needed</span></div>
+      <div class="tablewrap"><table id="trace"><thead><tr><th scope="col">Req.</th><th scope="col">Component</th><th scope="col">Assumption</th><th scope="col">Result</th><th scope="col">Evidence needed</th><th scope="col">Status</th></tr></thead><tbody></tbody></table></div>
+    </section>
+    <section class="panel" aria-labelledby="bom-h">
+      <div class="panel-head"><h2 id="bom-h"><span class="n">7</span>Bill of materials, design A</h2><span class="sub">list prices at ₹95/USD, ±30 %</span></div>
+      <div class="tablewrap"><table id="bom"><thead><tr><th scope="col">Item</th><th scope="col">g</th><th scope="col">₹</th></tr></thead><tbody></tbody></table></div>
+    </section>
+  </div>
+
+  <section class="panel" aria-labelledby="par-h">
+    <div class="panel-head"><h2 id="par-h"><span class="n">8</span>Parameters and calibration</h2>
+      <div class="strip">
+        <span class="filelabel"><label for="calib">Load calib.json from the bench tests</label><input id="calib" type="file" accept=".json,application/json"></span>
+        <button type="button" id="reset-calib">Back to assumptions</button>
+      </div></div>
+    <p class="note">DS values come from a datasheet. ASM values are assumptions nobody has measured. A calibration file made by <span class="mono">calibrate.py</span> replaces them, and every result above that depends on them switches to "calibrated".</p>
+    <div class="tablewrap"><table id="params"><thead><tr><th scope="col">Parameter</th><th scope="col">Value</th><th scope="col">Tag</th></tr></thead><tbody></tbody></table></div>
+  </section>
+</main>
+
+<template id="design-tpl">
+  <section class="panel design">
+    <div class="panel-head">
+      <div class="title"><span class="tag"></span><select class="preset" aria-label="Preset"></select></div>
+      <span class="pill overall"></span>
+    </div>
+    <div class="cfg">
+      <div class="field"><label>Cell</label><select data-f="cell"></select></div>
+      <div class="field"><label>Series (NS)</label><input data-f="NS" type="number" min="1" max="16" step="1"></div>
+      <div class="field"><label>Parallel (NP)</label><input data-f="NP" type="number" min="1" max="12" step="1"></div>
+      <div class="field"><label>Busbar</label><select data-f="busbar"><option value="Ni">Nickel strip</option><option value="CuNi">Nickel-clad copper</option></select></div>
+      <div class="field"><label>Cooling</label><select data-f="cooling"><option value="air">Natural air</option><option value="pcm">PCM block (35 °C)</option>
+        <option value="liquid">Liquid cold plates</option><option value="hbtms">Liquid + foam + PCM (35 °C)</option><option value="hbtms47">Liquid + foam + PCM (47 °C)</option></select></div>
+      <div class="field"><label>Balancing</label><select data-f="bal"><option value="passive">Passive bleed</option><option value="active">Active (ETA3000)</option></select></div>
+      <div class="field"><label>BMS power path</label><select data-f="bms"><option value="standard">Standard FETs, 0.5 mΩ shunt</option><option value="lowloss">Low-loss, 0.25 mΩ shunt</option></select></div>
+    </div>
+    <div class="summary"></div>
+    <div class="split">
+      <dl class="kpi"></dl>
+      <div class="layout-fig"><div class="viewport"><canvas aria-label="3D view of the module, cells coloured by temperature at the peak of the curves shown; drag to rotate"></canvas></div><div class="cap"></div></div>
+    </div>
+    <div><button type="button" class="copy">Copy design as JSON for bess_platform.py</button></div>
+  </section>
+</template>
+
+<script>
+/*ENGINE*/
+</script>
+<script>
+(function () {
+"use strict";
+const B = window.BESS;
+const $ = s => document.querySelector(s);
+const state = {
+  A: Object.assign({bms: "standard"}, B.REFERENCE["R-B 4S5P low-loss"]), B: Object.assign({bms: "standard"}, B.REFERENCE["Baseline"]),
+  presetA: "R-B 4S5P low-loss", presetB: "Baseline", view: "25", res: {}, calibName: null,
+};
+const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+const units = t => String(t).replace(/(\d) C\b/g, "$1 °C").replace(/ cm3\b/g, " cm³").replace(/mOhm/g, "mΩ").replace(/<=/g, "≤").replace(/>=/g, "≥");
+const fmt = (x, n = 0) => (x === null || x === undefined || Number.isNaN(x)) ? "–" : Number(x).toFixed(n);
+
+function mission() {
+  const m = {burst: +$("#m-burst").value || 0, base: +$("#m-base").value || 0, burst_s: +$("#m-bs").value || 1, period_s: +$("#m-ps").value || 2};
+  if (m.period_s <= m.burst_s) m.period_s = m.burst_s + 1;
+  return m;
+}
+function applyUiParams() {
+  if (!("sink_offset_liquid" in B.CALIB)) B.P.sink_offset_liquid = +$("#p-sink").value;
+  const fv = $("#p-f").value; B.P.maldist = fv === "auto" ? null : +fv;
+}
+
+// ---- design cards ----
+function buildCard(k) {
+  const node = $("#design-tpl").content.firstElementChild.cloneNode(true);
+  node.dataset.k = k; node.querySelector(".tag").textContent = k; node.id = "design-" + k;
+  const ps = node.querySelector(".preset"); ps.id = "preset-" + k;
+  for (const n of Object.keys(B.REFERENCE).concat(["Custom"])) { const o = document.createElement("option"); o.value = n; o.textContent = n; ps.appendChild(o); }
+  const cs = node.querySelector('[data-f="cell"]');
+  for (const n of Object.keys(B.CELLS)) { const o = document.createElement("option"); o.value = n; o.textContent = `${n} (${B.CELLS[n].fmt})`; cs.appendChild(o); }
+  node.querySelectorAll("[data-f]").forEach(el => {
+    el.id = `${k}-${el.dataset.f}`; el.previousElementSibling.setAttribute("for", el.id);
+    el.addEventListener("change", () => { const f = el.dataset.f; state[k][f] = el.type === "number" ? Math.max(1, Math.round(+el.value)) : el.value;
+      state["preset" + k] = "Custom"; syncCard(k); schedule(); });
+  });
+  ps.addEventListener("change", () => { if (ps.value !== "Custom") { state[k] = Object.assign({bms: "standard"}, B.REFERENCE[ps.value]); }
+    state["preset" + k] = ps.value; syncCard(k); schedule(); });
+  node.querySelector(".copy").addEventListener("click", async () => {
+    const txt = JSON.stringify({designs: {[state["preset" + k] === "Custom" ? "My design" : state["preset" + k]]: state[k]}, mission: mission()}, null, 1);
+    try { await navigator.clipboard.writeText(txt); setStatus("Design " + k + " copied. Save it as configs/my_design.json and run python3 bess_platform.py --config configs/my_design.json"); }
+    catch (e) { setStatus("Copy was blocked by the browser. The JSON is: " + txt.replace(/\s+/g, " ")); }
+  });
+  $("#designs").appendChild(node);
+}
+function syncCard(k) {
+  const node = $("#design-" + k), cfg = state[k];
+  node.querySelector(".preset").value = state["preset" + k];
+  node.querySelectorAll("[data-f]").forEach(el => { el.value = cfg[el.dataset.f] ?? (el.dataset.f === "bms" ? "standard" : ""); });
+}
+function setStatus(t) { $("#status").textContent = t; }
+
+// ---- compute ----
+let timer = null;
+function schedule() { clearTimeout(timer); setStatus("Recomputing…"); timer = setTimeout(run, 60); }
+function run() {
+  applyUiParams();
+  const m = mission(), t0 = performance.now();
+  for (const k of ["A", "B"]) state.res[k] = B.evaluate(state[k], m, null, {traceEol: true});
+  setStatus(`Computed both designs in ${fmt(performance.now() - t0)} ms` + (state.calibName ? ` · calibrated from ${state.calibName}` : " · assumptions only, no bench data loaded"));
+  render();
+}
+
+// ---- render ----
+function pill(level, text) { const s = document.createElement("span"); s.className = "pill " + (level || "NA"); s.textContent = text || level || "n/a"; return s; }
+function render() {
+  for (const k of ["A", "B"]) renderCard(k);
+  renderChecks(); renderTrace(); renderBom(); renderParams(); drawCharts();
+}
+function renderCard(k) {
+  const r = state.res[k], node = $("#design-" + k), d = r.verdicts;
+  const overall = d.find(v => v[0] === "C10")[2];
+  const ov = node.querySelector(".overall"); ov.className = "pill overall " + overall;
+  ov.textContent = overall === "PASS" ? "ALL REQUIREMENTS MET" : "REQUIREMENTS NOT MET";
+  const sum = node.querySelector(".summary"); sum.replaceChildren();
+  const cnt = {FAIL: 0, MARGINAL: 0, WARN: 0, PASS: 0};
+  d.forEach(v => { if (v[0] !== "C10") cnt[v[2]]++; });
+  for (const l of ["FAIL", "MARGINAL", "WARN", "PASS"]) if (cnt[l]) sum.appendChild(pill(l, `${cnt[l]} ${l}`));
+  const lbl = document.createElement("span"); lbl.textContent = r.label; sum.appendChild(lbl);
+  const c = r.config, cell = B.CELLS[c.cell], m25 = r.mission25, m40 = r.mission40, e = r.mission25_eol, g = r.geom, b = r.bom;
+  const rows = [
+    ["Nominal", `${fmt(c.NS * cell.Vnom, 1)} V · ${fmt(g.E_nom_Wh / (c.NS * cell.Vnom), 1)} Ah · ${fmt(g.E_nom_Wh)} Wh`],
+    ["Mission at 25 °C", `${fmt(m25.t)} s · ${fmt(m25.Wh)} Wh · hot cell ${fmt(m25.Thot_max, 1)} °C`],
+    ["Mission at 40 °C", `${fmt(m40.t)} s · ${fmt(m40.Wh)} Wh · ${m40.reason}`],
+    ["End of life, 25 °C", `${fmt(e.t)} s · ${fmt(e.Wh)} Wh · ${e.reason}`],
+    ["40 °C mission scale, 3 K margin", `k = ${fmt(r.derate40_3K, 2)}`],
+    ["Max constant current", `${fmt(r.imax25)} A at 25 °C · ${fmt(r.imax40)} A at 40 °C`],
+    ["Worst parallel branch", `${fmt(mission().burst / c.NP * r.current_factor, 1)} A (factor ${fmt(r.current_factor, 3)}) vs ${fmt(cell.Imax)} A`],
+    ["Mass, module", `${b.mass_module} g` + (b.mass_system > b.mass_module ? ` (+${b.mass_system - b.mass_module} g loop)` : "")],
+    ["Cost, module", `₹${B.inr(b.inr_module)}` + (b.inr_system > b.inr_module ? ` (+₹${B.inr(b.inr_system - b.inr_module)} loop)` : "")],
+    ["Envelope", `${fmt(g.L_mm)} × ${fmt(g.W_mm)} × ${fmt(g.H_mm)} mm · ${fmt(g.volume_L, 2)} L`],
+    ["Energy density", `${fmt(r.Wh_per_kg)} Wh/kg · ${fmt(g.Wh_per_L)} Wh/L`],
+    ["Charge 1C · balance 5 %", `${fmt(r.charge1c.hours, 2)} h · ${fmt(r.bal.hours, 1)} h`],
+  ];
+  const dl = node.querySelector("dl.kpi"); dl.replaceChildren();
+  for (const [a, v] of rows) { const dt = document.createElement("dt"), dd = document.createElement("dd"); dt.textContent = a; dd.textContent = v; dl.append(dt, dd); }
+  draw3DCard(k);
+  node.querySelector(".layout-fig .cap").textContent = `${g.grid} grid of ${cell.fmt} · colour = temperature at the curves' peak · drag to rotate`;
+}
+function renderChecks() {
+  const tb = $("#checks tbody"); tb.replaceChildren();
+  const ids = []; for (const k of ["A", "B"]) for (const v of state.res[k].verdicts) if (!ids.includes(v[0])) ids.push(v[0]);
+  for (const id of ids) {
+    const tr = document.createElement("tr");
+    const va = state.res.A.verdicts.find(v => v[0] === id), vb = state.res.B.verdicts.find(v => v[0] === id);
+    const td0 = document.createElement("td"); td0.className = "rid"; td0.textContent = id;
+    const td1 = document.createElement("td"); td1.textContent = units((va || vb)[1]);
+    tr.append(td0, td1);
+    for (const v of [va, vb]) { const td = document.createElement("td");
+      if (v) { td.appendChild(pill(v[2])); const w = document.createElement("span"); w.className = "why"; w.textContent = units(v[3]); td.appendChild(w); }
+      else td.appendChild(pill("NA", "n/a")); tr.appendChild(td); }
+    tb.appendChild(tr);
+  }
+}
+function renderTrace() {
+  const tb = $("#trace tbody"); tb.replaceChildren();
+  for (const t of state.res.A.trace) { const tr = document.createElement("tr");
+    for (const i of [0, 1, 2, 4, 5]) { const td = document.createElement("td"); td.textContent = t[i]; if (i === 0) td.className = "rid"; tr.appendChild(td); }
+    const td = document.createElement("td"); const cl = t[6] === "calibrated" ? "tagcal" : (t[6] === "datasheet" ? "tagDS" : "tagASM");
+    td.className = cl; td.textContent = t[6]; tr.appendChild(td); tb.appendChild(tr); }
+}
+function renderBom() {
+  const tb = $("#bom tbody"); tb.replaceChildren();
+  for (const it of state.res.A.bom.items) { const tr = document.createElement("tr");
+    const a = document.createElement("td"); a.textContent = it.item + (it.vehicle_side ? " (vehicle side)" : "");
+    const g = document.createElement("td"); g.className = "num"; g.textContent = fmt(it.g);
+    const u = document.createElement("td"); u.className = "num"; u.textContent = B.inr(it.inr); tr.append(a, g, u); tb.appendChild(tr); }
+  const b = state.res.A.bom, tr = document.createElement("tr");
+  tr.innerHTML = `<td><strong>Module total</strong></td><td class="num"><strong>${b.mass_module}</strong></td><td class="num"><strong>${B.inr(b.inr_module)}</strong></td>`;
+  tb.appendChild(tr);
+}
+function renderParams() {
+  const tb = $("#params tbody"); tb.replaceChildren();
+  const add = (name, val, tag) => { const tr = document.createElement("tr");
+    const a = document.createElement("td"); a.className = "mono"; a.textContent = name;
+    const b = document.createElement("td"); b.className = "num"; b.textContent = val;
+    const c = document.createElement("td"); c.className = tag === "calibrated" ? "tagcal" : (tag === "DS" ? "tagDS" : "tagASM"); c.textContent = tag;
+    tr.append(a, b, c); tb.appendChild(tr); };
+  const cell = B.CELLS[state.A.cell];
+  const cq = (state.A.cell === "Molicel P28A" && "Q_cell" in B.CALIB), cr = (state.A.cell === "Molicel P28A" && "R25" in B.CALIB);
+  add(`${state.A.cell}: capacity (Ah)`, fmt(cq ? B.CALIB.Q_cell : cell.Q, 3), cq ? "calibrated" : "DS");
+  add(`${state.A.cell}: DC resistance at 25 °C (mΩ)`, fmt((cr ? B.CALIB.R25 : cell.R25) * 1000, 2), cr ? "calibrated" : (cell.asm.includes("R25") ? "ASM" : "DS"));
+  add(`${state.A.cell}: max discharge / charge (A)`, `${cell.Imax} / ${cell.Ichg_max}`, cell.asm.includes("Ichg_max") ? "DS / ASM" : "DS");
+  for (const k of Object.keys(B.PARAMS)) {
+    let v = B.P[k]; if (k === "maldist") v = v === null ? "auto (p95)" : v;
+    add(k, typeof v === "number" ? String(+v.toPrecision(4)) : v, k in B.CALIB ? "calibrated" : B.PARAMS[k][1]);
+  }
+  add("OCV table", B.OCV.map(x => `${x[0]}:${x[1]}`).join(" "), "OCV" in B.CALIB ? "calibrated" : "ASM");
+}
+
+// ---- charts ----
+function setupCanvas(cv) {
+  const dpr = window.devicePixelRatio || 1, w = cv.clientWidth, h = +cv.getAttribute("height");
+  cv.width = Math.round(w * dpr); cv.height = Math.round(h * dpr); cv.style.height = h + "px";
+  const ctx = cv.getContext("2d"); ctx.setTransform(dpr, 0, 0, dpr, 0, 0); return [ctx, w, h];
+}
+function niceStep(range, n) { const raw = range / n, p = Math.pow(10, Math.floor(Math.log10(raw))), m = raw / p; return (m < 1.5 ? 1 : m < 3 ? 2 : m < 7 ? 5 : 10) * p; }
+function chart(cv, series, yLabel, yIdx, hlines, yFixed) {
+  const [ctx, W, H] = setupCanvas(cv), pad = {l: 46, r: 14, t: 10, b: 26};
+  ctx.clearRect(0, 0, W, H);
+  const xmax = Math.max(60, ...series.map(s => s.data.length ? s.data[s.data.length - 1][0] : 0));
+  let ymin = Infinity, ymax = -Infinity;
+  for (const s of series) for (const p of s.data) { ymin = Math.min(ymin, p[yIdx]); ymax = Math.max(ymax, p[yIdx]); }
+  for (const h of hlines) { ymin = Math.min(ymin, h.y); ymax = Math.max(ymax, h.y); }
+  if (yFixed) { ymin = Math.min(ymin, yFixed[0]); ymax = Math.max(ymax, yFixed[1]); }
+  if (!isFinite(ymin)) { ymin = 0; ymax = 1; }
+  const ys = niceStep(ymax - ymin || 1, 5); ymin = Math.floor(ymin / ys) * ys; ymax = Math.ceil(ymax / ys) * ys;
+  const xs = niceStep(xmax, 8);
+  const X = x => pad.l + (W - pad.l - pad.r) * x / xmax, Y = y => pad.t + (H - pad.t - pad.b) * (1 - (y - ymin) / (ymax - ymin));
+  ctx.font = `11px ${css("--mono")}`; ctx.fillStyle = css("--muted"); ctx.strokeStyle = css("--rule"); ctx.lineWidth = 1;
+  ctx.textAlign = "right"; ctx.textBaseline = "middle";
+  for (let y = ymin; y <= ymax + 1e-9; y += ys) { ctx.beginPath(); ctx.moveTo(pad.l, Y(y)); ctx.lineTo(W - pad.r, Y(y)); ctx.stroke(); ctx.fillText(fmt(y, ys < 1 ? 1 : 0), pad.l - 6, Y(y)); }
+  ctx.textAlign = "center"; ctx.textBaseline = "top";
+  for (let x = 0; x <= xmax + 1e-9; x += xs) ctx.fillText(fmt(x), X(x), H - pad.b + 6);
+  ctx.save(); ctx.translate(11, pad.t + (H - pad.t - pad.b) / 2); ctx.rotate(-Math.PI / 2); ctx.textBaseline = "middle"; ctx.fillText(yLabel, 0, 0); ctx.restore();
+  ctx.textAlign = "right"; ctx.textBaseline = "bottom"; ctx.fillText("time (s)", W - pad.r, H - pad.b - 2);
+  for (const h of hlines) { ctx.save(); ctx.setLineDash([5, 4]); ctx.strokeStyle = h.color; ctx.lineWidth = 1.2; ctx.beginPath(); ctx.moveTo(pad.l, Y(h.y)); ctx.lineTo(W - pad.r, Y(h.y)); ctx.stroke();
+    ctx.fillStyle = h.color; ctx.textAlign = "left"; ctx.textBaseline = "bottom"; ctx.fillText(h.label, pad.l + 4, Y(h.y) - 2); ctx.restore(); }
+  for (const s of series) {
+    if (!s.data.length) continue;
+    ctx.strokeStyle = s.color; ctx.lineWidth = 2; ctx.beginPath();
+    s.data.forEach((p, i) => { const x = X(p[0]), y = Y(p[yIdx]); if (i) ctx.lineTo(x, y); else ctx.moveTo(x, y); }); ctx.stroke();
+    const last = s.data[s.data.length - 1]; ctx.fillStyle = s.color; ctx.beginPath(); ctx.arc(X(last[0]), Y(last[yIdx]), 3.5, 0, 2 * Math.PI); ctx.fill();
+  }
+}
+function drawCharts() {
+  const key = state.view === "25" ? "mission25" : state.view === "40" ? "mission40" : "mission25_eol";
+  const ser = ["A", "B"].map(k => ({color: css(k === "A" ? "--a" : "--b"), data: state.res[k][key].curve || [], r: state.res[k]}));
+  const TM = Math.min(state.res.A.T_MAX, state.res.B.T_MAX);
+  chart($("#cT"), ser, "hot cell (°C)", 1, [{y: TM, color: css("--fail"), label: `limit ${fmt(TM)} °C`}, {y: TM - 5, color: css("--warn"), label: `derate ${fmt(TM - 5)} °C`}], [20, TM + 2]);
+  chart($("#cV"), ser, "module (V)", 2, [], null);
+  const lg = $("#legend"); lg.replaceChildren();
+  for (const [k, s] of [["A", ser[0]], ["B", ser[1]]]) { const run = s.r[key];
+    const span = document.createElement("span"); const i = document.createElement("i"); i.style.background = s.color;
+    span.append(i, `${k}: ${fmt(run.t)} s, ${fmt(run.Wh)} Wh, stopped by ${run.reason}`); lg.appendChild(span); }
+}
+
+
+// ---- design search ----
+let SEARCH = null, searchPts = [];
+function runSearch() {
+  setStatus("Searching 480 designs…");
+  setTimeout(() => { applyUiParams(); const t0 = performance.now(); SEARCH = B.designSearch(4, mission());
+    setStatus(`Searched ${SEARCH.n} designs in ${fmt((performance.now() - t0) / 1000, 1)} s`); renderSearch(); }, 30);
+}
+function cfgKey(c) { return [c.cell, c.NP, c.busbar, c.cooling, c.bal, c.bms || "standard"].join("|"); }
+function renderSearch() {
+  if (!SEARCH) return;
+  const cv = $("#cS"), [ctx, W, H] = setupCanvas(cv), pad = {l: 52, r: 34, t: 10, b: 30};
+  ctx.clearRect(0, 0, W, H);
+  const rows = SEARCH.rows, xs = rows.map(r => r.inr), ys = rows.map(r => r.mass);
+  let x0 = Math.min(...xs), x1 = Math.max(...xs), y0 = Math.min(...ys), y1 = Math.max(...ys);
+  const sx = niceStep(x1 - x0, 6), sy = niceStep(y1 - y0, 5); x0 = Math.floor(x0 / sx) * sx; x1 = Math.ceil(x1 / sx) * sx; y0 = Math.floor(y0 / sy) * sy; y1 = Math.ceil(y1 / sy) * sy;
+  const X = x => pad.l + (W - pad.l - pad.r) * (x - x0) / (x1 - x0), Y = y => pad.t + (H - pad.t - pad.b) * (1 - (y - y0) / (y1 - y0));
+  ctx.font = `11px ${css("--mono")}`; ctx.fillStyle = css("--muted"); ctx.strokeStyle = css("--rule"); ctx.lineWidth = 1;
+  ctx.textAlign = "right"; ctx.textBaseline = "middle";
+  for (let y = y0; y <= y1 + 1e-9; y += sy) { ctx.beginPath(); ctx.moveTo(pad.l, Y(y)); ctx.lineTo(W - pad.r, Y(y)); ctx.stroke(); ctx.fillText(fmt(y), pad.l - 6, Y(y)); }
+  ctx.textAlign = "center"; ctx.textBaseline = "top";
+  for (let x = x0; x <= x1 + 1e-9; x += sx) ctx.fillText("₹" + B.inr(x), X(x), H - pad.b + 6);
+  ctx.textAlign = "right"; ctx.fillText("module cost", W - pad.r, H - pad.b - 14); ctx.textAlign = "center";
+  ctx.save(); ctx.translate(12, pad.t + (H - pad.t - pad.b) / 2); ctx.rotate(-Math.PI / 2); ctx.textBaseline = "middle"; ctx.fillText("module mass (g)", 0, 0); ctx.restore();
+  // limits R6 and R7
+  ctx.save(); ctx.setLineDash([5, 4]); ctx.strokeStyle = css("--fail");
+  const R7 = B.DEFAULT_REQ.R7_inr;
+  ctx.beginPath(); ctx.moveTo(X(R7), pad.t); ctx.lineTo(X(R7), H - pad.b); ctx.stroke(); ctx.beginPath(); ctx.moveTo(pad.l, Y(1500)); ctx.lineTo(W - pad.r, Y(1500)); ctx.stroke();
+  ctx.fillStyle = css("--fail"); ctx.textAlign = "left"; ctx.textBaseline = "bottom"; ctx.fillText("R7 ₹" + B.inr(R7), X(R7) + 4, pad.t + 14); ctx.fillText("R6 1.5 kg", pad.l + 4, Y(1500) - 2); ctx.restore();
+  const frontKeys = new Set(SEARCH.front.map(r => cfgKey(r.cfg))), aKey = cfgKey(state.A);
+  searchPts = [];
+  const order = [...rows].sort((a, b) => (a.fails.length ? 0 : a.warns.length ? 1 : 2) - (b.fails.length ? 0 : b.warns.length ? 1 : 2));
+  for (const r of order) {
+    const px = X(r.inr), py = Y(r.mass), cls = r.fails.length ? "--na" : r.warns.length ? "--warn" : "--pass";
+    ctx.beginPath(); ctx.arc(px, py, r.fails.length ? 2.5 : 4.5, 0, 2 * Math.PI); ctx.fillStyle = css(cls); ctx.globalAlpha = r.fails.length ? 0.45 : 1; ctx.fill(); ctx.globalAlpha = 1;
+    if (frontKeys.has(cfgKey(r.cfg))) { ctx.lineWidth = 2; ctx.strokeStyle = css("--ink"); ctx.beginPath(); ctx.arc(px, py, 7.5, 0, 2 * Math.PI); ctx.stroke(); }
+    if (cfgKey(r.cfg) === aKey) { ctx.lineWidth = 2; ctx.strokeStyle = css("--a"); ctx.beginPath(); ctx.arc(px, py, 11, 0, 2 * Math.PI); ctx.stroke(); }
+    searchPts.push([px, py, r]);
+  }
+  const lg = $("#search-legend"); lg.innerHTML = "";
+  for (const [c, t] of [["--na", `fails a requirement (${SEARCH.n - SEARCH.n_pass})`], ["--warn", `passes with a warning (${SEARCH.n_pass - SEARCH.n_clean})`], ["--pass", `passes cleanly (${SEARCH.n_clean})`], ["--ink", "ring: trade-off front"], ["--a", "ring: design A"]]) {
+    const sp = document.createElement("span"), i = document.createElement("i"); i.style.background = css(c); sp.append(i, t); lg.appendChild(sp); }
+  const sm = $("#search-summary"); sm.replaceChildren(pill("PASS", `${SEARCH.n_pass} of ${SEARCH.n} meet every requirement`), pill(SEARCH.n_clean ? "PASS" : "FAIL", `${SEARCH.n_clean} with no warning`));
+  const tb = $("#front tbody"); tb.replaceChildren();
+  for (const r of SEARCH.front) { const tr = document.createElement("tr");
+    const a = document.createElement("td"); a.textContent = B.label(r.cfg);
+    const b = document.createElement("td"); b.className = "num"; b.style.whiteSpace = "nowrap"; b.textContent = "₹" + B.inr(r.inr);
+    const c = document.createElement("td"); c.className = "num"; c.style.whiteSpace = "nowrap"; c.textContent = r.mass + " g";
+    const d = document.createElement("td"); d.className = "num"; d.textContent = fmt(r.margin40, 1) + " K";
+    const e = document.createElement("td"); const btn = document.createElement("button"); btn.type = "button"; btn.textContent = "Load into A";
+    btn.addEventListener("click", () => loadIntoA(r.cfg)); e.appendChild(btn); tr.append(a, b, c, d, e); tb.appendChild(tr); }
+  const fc = $("#failcount tbody"); fc.replaceChildren();
+  for (const [k, v] of Object.entries(SEARCH.fail_count).sort((a, b) => b[1] - a[1])) { const tr = document.createElement("tr");
+    const a = document.createElement("td"); a.className = "rid"; a.textContent = k; const b = document.createElement("td"); b.className = "num"; b.textContent = `${v} of ${SEARCH.n}`; tr.append(a, b); fc.appendChild(tr); }
+}
+function loadIntoA(cfg) { state.A = Object.assign({}, cfg); state.presetA = "Custom"; syncCard("A"); schedule(); setTimeout(renderSearch, 200); }
+$("#cS").addEventListener("click", ev => {
+  const rc = ev.target.getBoundingClientRect(), x = ev.clientX - rc.left, y = ev.clientY - rc.top;
+  let best = null, bd = 1e9; for (const [px, py, r] of searchPts) { const dd = (px - x) ** 2 + (py - y) ** 2; if (dd < bd) { bd = dd; best = r; } }
+  if (best && bd < 400) { loadIntoA(best.cfg); setStatus("Loaded into A: " + B.label(best.cfg) + (best.fails.length ? " · fails " + best.fails.join(", ") : "")); }
+});
+$("#run-search").addEventListener("click", runSearch);
+
+// ---- uncertainty ----
+function runUQ() {
+  setStatus("Running 300 samples for design A…");
+  setTimeout(() => { applyUiParams(); const t0 = performance.now(); const u = B.uncertainty(state.A, 300, 7, mission());
+    setStatus(`300 samples in ${fmt((performance.now() - t0) / 1000, 1)} s`); renderUQ(u); }, 30);
+}
+function renderUQ(u) {
+  const tb = $("#uq tbody"); tb.replaceChildren();
+  const rows = [["R3 hot cell at 25 °C", u.p_R3], ["R5 energy and length at 25 °C", u.p_R5], ["R11 end of life", u.p_R11],
+                ["R4 finishes the 40 °C mission", u.p_R4], ["R4 with 3 K margin", u.p_R4_margin], ["All four together", u.p_all]];
+  for (const [n, p] of rows) { const tr = document.createElement("tr"); const a = document.createElement("td"); a.textContent = n;
+    const b = document.createElement("td"); const bar = document.createElement("div"); bar.className = "bar"; const sp = document.createElement("span");
+    sp.style.width = (p * 100) + "%"; sp.style.background = css(p >= 0.95 ? "--pass" : p >= 0.6 ? "--warn" : "--fail");
+    const em = document.createElement("em"); em.textContent = fmt(p * 100) + " %"; bar.append(sp, em); b.appendChild(bar); tr.append(a, b); tb.appendChild(tr); }
+  $("#uq-drivers").textContent = "What moves the 40 °C peak most (correlation): " + u.drivers_T40.map(([k, c]) => `${k} ${c > 0 ? "+" : ""}${fmt(c, 2)}`).join(", ") +
+    `. 40 °C hot-cell peak: ${fmt(u.T40_p5_p50_p95[0], 1)} / ${fmt(u.T40_p5_p50_p95[1], 1)} / ${fmt(u.T40_p5_p50_p95[2], 1)} °C (5th / 50th / 95th percentile).`;
+  // histogram
+  const cv = $("#cU"), [ctx, W, H] = setupCanvas(cv), pad = {l: 40, r: 12, t: 10, b: 30};
+  ctx.clearRect(0, 0, W, H);
+  const lo = 40, hi = 62, nb = 22, bins = new Array(nb).fill(0);
+  for (const t of u.T40_all) { const i = Math.min(nb - 1, Math.max(0, Math.floor((t - lo) / (hi - lo) * nb))); bins[i]++; }
+  const mx = Math.max(...bins), bw = (W - pad.l - pad.r) / nb, Y = c => pad.t + (H - pad.t - pad.b) * (1 - c / mx);
+  ctx.font = `11px ${css("--mono")}`; ctx.fillStyle = css("--muted"); ctx.textAlign = "center"; ctx.textBaseline = "top";
+  for (let t = lo; t <= hi; t += 4) ctx.fillText(t + " °C", pad.l + (t - lo) / (hi - lo) * (W - pad.l - pad.r), H - pad.b + 6);
+  ctx.textAlign = "right"; ctx.textBaseline = "middle"; ctx.fillText(String(mx), pad.l - 6, Y(mx)); ctx.fillText("0", pad.l - 6, Y(0));
+  bins.forEach((c, i) => { const t = lo + (i + 0.5) * (hi - lo) / nb; ctx.fillStyle = css(t >= 60 ? "--fail" : t >= 57 ? "--warn" : "--a");
+    ctx.fillRect(pad.l + i * bw + 1, Y(c), bw - 2, Y(0) - Y(c)); });
+  const xl = pad.l + (60 - lo) / (hi - lo) * (W - pad.l - pad.r);
+  ctx.save(); ctx.setLineDash([5, 4]); ctx.strokeStyle = css("--fail"); ctx.beginPath(); ctx.moveTo(xl, pad.t); ctx.lineTo(xl, H - pad.b); ctx.stroke(); ctx.restore();
+  ctx.fillStyle = css("--muted"); ctx.textAlign = "left"; ctx.textBaseline = "top"; ctx.fillText("40 °C hot-cell peak, samples per bin", pad.l + 4, pad.t);
+}
+$("#run-uq").addEventListener("click", runUQ);
+
+
+// ---- 3D module view (hand-written orthographic renderer, no library) ----
+const VIEW3D = new WeakMap();
+function tempColor(T) {
+  const st = [[25, [59, 111, 216]], [40, [47, 163, 107]], [50, [224, 160, 32]], [60, [214, 58, 47]]];
+  if (T <= st[0][0]) return st[0][1];
+  for (let i = 0; i < st.length - 1; i++) { const [t0, c0] = st[i], [t1, c1] = st[i + 1];
+    if (T <= t1) { const f = (T - t0) / (t1 - t0); return c0.map((v, j) => Math.round(v + (c1[j] - v) * f)); } }
+  return st[st.length - 1][1];
+}
+const rgb = (c, k = 1, a = 1) => `rgba(${Math.min(255, Math.round(c[0] * k))},${Math.min(255, Math.round(c[1] * k))},${Math.min(255, Math.round(c[2] * k))},${a})`;
+function moduleScene(cfg) {
+  const d = B.build(cfg), g = B.geometry(d), c = d.cell;
+  const liq = ["liquid", "hbtms", "hbtms47"].includes(cfg.cooling), wall = liq ? 2 : 1.5, plate = liq ? 6 : 0;
+  const L = g.L_mm, W = g.W_mm, x0 = -L / 2 + wall + plate, y0 = -W / 2 + wall, H = c.H;
+  const cells = [];
+  for (let i = 0; i < d.N; i++) cells.push({x: x0 + ((i % g.cols) + 0.5) * g.pitch, y: y0 + (Math.floor(i / g.cols) + 0.5) * g.pitch, r: c.D / 2});
+  // hot cell: the one nearest the middle of the grid (the lumped model does not say which; this is illustrative)
+  let hot = 0, bd = 1e9; const mx = x0 + g.cols * g.pitch / 2, my = y0 + g.rows * g.pitch / 2;
+  cells.forEach((p, i) => { const dd = (p.x - mx) ** 2 + (p.y - my) ** 2; if (dd < bd) { bd = dd; hot = i; } });
+  const boxes = [{x0: -L / 2, x1: L / 2, y0: -W / 2, y1: W / 2, z0: -5, z1: 0, col: [70, 80, 94], kind: "tray"}];
+  if (liq) { boxes.push({x0: -L / 2 + wall, x1: -L / 2 + wall + plate, y0: y0, y1: W / 2 - wall, z0: 0, z1: H * 0.92, col: [40, 170, 168], a: 0.92, kind: "plate"});
+             boxes.push({x0: L / 2 - wall - plate, x1: L / 2 - wall, y0: y0, y1: W / 2 - wall, z0: 0, z1: H * 0.92, col: [40, 170, 168], a: 0.92, kind: "plate"}); }
+  if (cfg.cooling === "pcm") boxes.push({x0: x0 + g.cols * g.pitch + 1, x1: L / 2 - wall, y0: y0, y1: W / 2 - wall, z0: 0, z1: H * 0.95, col: [226, 150, 70], a: 0.95, kind: "pcm"});
+  const foam = (cfg.cooling === "hbtms" || cfg.cooling === "hbtms47") ? {x0: x0, x1: x0 + g.cols * g.pitch, y0: y0, y1: y0 + g.rows * g.pitch, z0: 0, z1: H * 0.7, col: [226, 150, 70], a: 0.55} : null;
+  const strips = [];
+  const busCol = cfg.busbar === "CuNi" ? [196, 120, 74] : [178, 186, 196];
+  for (let r = 0; r < g.rows; r++) { const yc = y0 + (r + 0.5) * g.pitch;
+    strips.push({x0: x0 + 2, x1: x0 + g.cols * g.pitch - 2, y0: yc - c.D * 0.28, y1: yc + c.D * 0.28, z0: H, z1: H + 1.2, col: busCol}); }
+  const bms = {x0: x0 + 2, x1: x0 + Math.min(g.cols * g.pitch * 0.38, 36), y0: y0 + 2, y1: y0 + Math.min(g.rows * g.pitch * 0.3, 22), z0: H + 6, z1: H + 7.6,
+               col: cfg.bms === "lowloss" ? [30, 120, 70] : [36, 104, 64]};
+  return {d, g, cells, hot, boxes, foam, strips, bms, H, L, W, f: d.f, sink: liq};
+}
+function setupHiDPI(cv) {
+  const dpr = window.devicePixelRatio || 1, w = cv.clientWidth, h = cv.clientHeight;
+  if (cv.width !== Math.round(w * dpr) || cv.height !== Math.round(h * dpr)) { cv.width = Math.round(w * dpr); cv.height = Math.round(h * dpr); }
+  const ctx = cv.getContext("2d"); ctx.setTransform(dpr, 0, 0, dpr, 0, 0); return [ctx, w, h];
+}
+function render3D(cv, sc, opt) {
+  const [ctx, w, h] = setupHiDPI(cv); ctx.clearRect(0, 0, w, h);
+  const yaw = opt.yaw, e = opt.elev ?? 0.62, ce = Math.cos(e), se = Math.sin(e), cy_ = Math.cos(yaw), sy_ = Math.sin(yaw);
+  const ztop = sc.H + 8, diag = Math.hypot(sc.L, sc.W);
+  const s = Math.min(w * 0.80 / diag, (h * (opt.legend ? 0.78 : 0.84)) / (diag * se + ztop * ce));
+  const cx = w / 2, cyc = h * (opt.legend ? 0.49 : 0.5) + s * (ztop / 2) * ce;
+  const rot = (x, y) => [x * cy_ - y * sy_, x * sy_ + y * cy_];
+  const P = (x, y, z) => { const [xr, yr] = rot(x, y); return [cx + s * xr, cyc + s * (yr * se - z * ce)]; };
+  const depth = (x, y, z) => rot(x, y)[1] * ce + z * se;
+  const items = [];
+  const light = (nx, ny, nz) => { const [a, b] = rot(nx, ny); return 0.55 + 0.45 * Math.max(0, -0.45 * a + 0.35 * b + 0.82 * nz); };
+  function pushBox(bx, layer = 0) {
+    const faces = [[1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, -1, 0], [0, 0, 1]];
+    for (const [nx, ny, nz] of faces) {
+      const [a, b] = rot(nx, ny); if (b * ce + nz * se <= 0) continue;
+      let pts;
+      if (nz) pts = [[bx.x0, bx.y0, bx.z1], [bx.x1, bx.y0, bx.z1], [bx.x1, bx.y1, bx.z1], [bx.x0, bx.y1, bx.z1]];
+      else if (nx) { const x = nx > 0 ? bx.x1 : bx.x0; pts = [[x, bx.y0, bx.z0], [x, bx.y1, bx.z0], [x, bx.y1, bx.z1], [x, bx.y0, bx.z1]]; }
+      else { const y = ny > 0 ? bx.y1 : bx.y0; pts = [[bx.x0, y, bx.z0], [bx.x1, y, bx.z0], [bx.x1, y, bx.z1], [bx.x0, y, bx.z1]]; }
+      const c = pts.reduce((m, p) => [m[0] + p[0] / 4, m[1] + p[1] / 4, m[2] + p[2] / 4], [0, 0, 0]);
+      items.push({dep: depth(...c) + layer, draw: () => { ctx.beginPath(); pts.forEach((p, i) => { const q = P(...p); i ? ctx.lineTo(q[0], q[1]) : ctx.moveTo(q[0], q[1]); });
+        ctx.closePath(); ctx.fillStyle = rgb(bx.col, light(nx, ny, nz), bx.a ?? 1); ctx.fill(); ctx.strokeStyle = "rgba(0,0,0,0.25)"; ctx.lineWidth = 0.6; ctx.stroke(); }});
+    }
+  }
+  // tray and foam first (always behind the cells)
+  pushBox(sc.boxes[0], -1e6);
+  for (const bx of sc.boxes.slice(1)) pushBox(bx);
+  // cells
+  sc.cells.forEach((p, i) => {
+    const T = i === sc.hot ? opt.Thot : opt.Tavg, col = tempColor(T);
+    items.push({dep: depth(p.x, p.y, sc.H / 2), draw: () => {
+      const [bx, by] = P(p.x, p.y, 0), [tx, ty] = P(p.x, p.y, sc.H), rx = p.r * s, ry = p.r * s * se;
+      const gr = ctx.createLinearGradient(bx - rx, 0, bx + rx, 0);
+      gr.addColorStop(0, rgb(col, 0.45)); gr.addColorStop(0.32, rgb(col, 1.05)); gr.addColorStop(0.45, rgb(col, 1.35)); gr.addColorStop(0.7, rgb(col, 0.85)); gr.addColorStop(1, rgb(col, 0.4));
+      ctx.beginPath(); ctx.moveTo(tx - rx, ty); ctx.lineTo(bx - rx, by); ctx.ellipse(bx, by, rx, ry, 0, Math.PI, 0, true); ctx.lineTo(tx + rx, ty); ctx.closePath();
+      ctx.fillStyle = gr; ctx.fill();
+      ctx.beginPath(); ctx.ellipse(tx, ty, rx, ry, 0, 0, 2 * Math.PI); ctx.fillStyle = "rgb(208,214,222)"; ctx.fill();
+      ctx.beginPath(); ctx.ellipse(tx, ty, rx * 0.88, ry * 0.88, 0, 0, 2 * Math.PI); ctx.fillStyle = rgb(col, 1.25); ctx.fill();
+      ctx.beginPath(); ctx.ellipse(tx, ty, rx * 0.42, ry * 0.42, 0, 0, 2 * Math.PI); ctx.fillStyle = "rgb(225,229,235)"; ctx.fill();
+    }});
+  });
+  if (sc.foam) { const f = sc.foam; items.push({dep: -1e5, draw: () => { const pts = [[f.x0, f.y0, f.z1], [f.x1, f.y0, f.z1], [f.x1, f.y1, f.z1], [f.x0, f.y1, f.z1]];
+    ctx.beginPath(); pts.forEach((p, i) => { const q = P(...p); i ? ctx.lineTo(q[0], q[1]) : ctx.moveTo(q[0], q[1]); }); ctx.closePath(); ctx.fillStyle = rgb(f.col, 1, 0.35); ctx.fill(); }}); }
+  items.sort((a, b) => a.dep - b.dep).forEach(it => it.draw());
+  // busbars and BMS board sit on top of everything
+  const top = []; const save = items.length; items.length = 0;
+  sc.strips.forEach(st => pushBox(st, 1e5)); pushBox(sc.bms, 2e5);
+  items.sort((a, b) => a.dep - b.dep).forEach(it => it.draw());
+  // hot-cell marker
+  if (opt.mark !== false) {
+    const p = sc.cells[sc.hot], [tx, ty] = P(p.x, p.y, sc.H + 1.5);
+    ctx.font = `${opt.small ? 10 : 12}px ${css("--mono")}`; ctx.textBaseline = "middle";
+    const t1 = `hot cell ${fmt(opt.Thot, 1)} °C`, t2 = `others ${fmt(opt.Tavg, 1)} °C`;
+    const tw = Math.max(ctx.measureText(t1).width, opt.small ? 0 : ctx.measureText(t2).width);
+    const right = tx + 29 + tw < w - 6, sx = right ? 1 : -1, lx = tx + sx * 26, ly = Math.max(14, ty - 26);
+    ctx.strokeStyle = "rgba(255,255,255,0.85)"; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(tx, ty); ctx.lineTo(tx + sx * 18, ly); ctx.lineTo(lx, ly); ctx.stroke();
+    ctx.textAlign = "left"; ctx.lineJoin = "round";
+    const xs = Math.max(6, Math.min(w - 6 - tw, right ? lx + 3 : lx - 3 - tw));
+    const label = (t, y, col) => { ctx.lineWidth = 3; ctx.strokeStyle = "rgba(10,14,20,0.85)"; ctx.strokeText(t, xs, y); ctx.fillStyle = col; ctx.fillText(t, xs, y); };
+    label(t1, ly, "#fff");
+    if (!opt.small) label(t2, ly + 15, "#c3cdd9");
+  }
+  if (opt.legend) {
+    const lw = Math.min(180, w * 0.4), lx = w - lw - 14, ly = opt.legendY ?? 14;
+    const gr = ctx.createLinearGradient(lx, 0, lx + lw, 0);
+    for (let t = 25; t <= 60; t += 5) gr.addColorStop((t - 25) / 35, rgb(tempColor(t)));
+    ctx.fillStyle = gr; ctx.fillRect(lx, ly, lw, 6);
+    ctx.fillStyle = "#aab6c6"; ctx.font = `11px ${css("--mono")}`; ctx.textAlign = "left"; ctx.textBaseline = "top"; ctx.fillText("25 °C", lx, ly + 9);
+    ctx.textAlign = "right"; ctx.fillText("60 °C", lx + lw, ly + 9);
+  }
+}
+function avgFromHot(Th, Tsink, f) { return Th > Tsink ? (Th + (f * f - 1) * Tsink) / (f * f) : Th; }
+function enableDrag(cv, getState, redraw) {
+  let x0 = null, yaw0 = 0;
+  cv.addEventListener("pointerdown", e => { x0 = e.clientX; yaw0 = getState().yaw; getState().dragging = true; cv.setPointerCapture(e.pointerId); });
+  cv.addEventListener("pointermove", e => { if (x0 === null) return; getState().yaw = yaw0 + (e.clientX - x0) * 0.012; redraw(); });
+  const end = () => { x0 = null; getState().dragging = false; };
+  cv.addEventListener("pointerup", end); cv.addEventListener("pointercancel", end);
+}
+function draw3DCard(k) {
+  const node = $("#design-" + k); if (!node || !state.res[k]) return;
+  const cv = node.querySelector(".layout-fig canvas");
+  let st = VIEW3D.get(cv);
+  if (!st) { st = {yaw: -0.65}; VIEW3D.set(cv, st); enableDrag(cv, () => st, () => draw3DCard(k)); }
+  const r = state.res[k], key = state.view === "25" ? "mission25" : state.view === "40" ? "mission40" : "mission25_eol";
+  const amb = state.view === "40" ? 40 : 25, curve = r[key].curve || [];
+  let Thot = amb; for (const p of curve) if (p[1] > Thot) Thot = p[1];
+  const sc = moduleScene(state[k]), Tsink = amb + (sc.sink ? B.P.sink_offset_liquid : 0);
+  render3D(cv, sc, {yaw: st.yaw, elev: 0.72, Thot, Tavg: avgFromHot(Thot, Tsink, sc.f), small: true});
+}
+
+// ---- home page: rotating module with a 40 °C mission playing back ----
+const HERO = {yaw: -0.7, i: 330, last: 0, dragging: false, sc: null, curve: [], f: 1, raf: 0};
+function heroInit() {
+  const cfg = B.REFERENCE["R-B 4S5P low-loss"];
+  const r = B.evaluate(cfg);
+  HERO.sc = moduleScene(cfg); HERO.curve = r.mission40.curve; HERO.f = r.current_factor; HERO.tsink = 40 + B.P.sink_offset_liquid;
+  // datasheet-style table for R-B, every value from the engine
+  const g = r.geom, b = r.bom, m25 = r.mission25, m40 = r.mission40, e = r.mission25_eol, c = B.CELLS[cfg.cell];
+  const cnt = {FAIL: 0, WARN: 0, MARGINAL: 0}; r.verdicts.forEach(v => { if (v[0] !== "C10" && v[2] in cnt) cnt[v[2]]++; });
+  const rows = [
+    ["grp", "Build"], ["Cells", `${cfg.NS * cfg.NP} × ${cfg.cell} (${c.fmt}), ${cfg.NS}S${cfg.NP}P`], ["Busbar", "nickel-clad copper"],
+    ["Cooling", "liquid cold plates on two faces"], ["BMS", `${b.chip}, low-loss FET path, 0.25 mΩ shunt`], ["Balancing", "passive bleed"],
+    ["grp", "Rating"], ["Nominal", `${fmt(cfg.NS * c.Vnom, 1)} V · ${fmt(g.E_nom_Wh / (cfg.NS * c.Vnom), 1)} Ah · ${fmt(g.E_nom_Wh)} Wh`],
+    ["Mass, module", `${b.mass_module} g`], ["Envelope", `${fmt(g.L_mm)} × ${fmt(g.W_mm)} × ${fmt(g.H_mm)} mm · ${fmt(g.volume_L, 2)} L`],
+    ["Cost, module", `₹${B.inr(b.inr_module)} (+₹${B.inr(b.inr_system - b.inr_module)} vehicle-side loop)`],
+    ["grp", "Duty cycle M1"], ["25 °C", `${fmt(m25.t)} s · ${fmt(m25.Wh)} Wh · hot cell ${fmt(m25.Thot_max, 1)} °C`],
+    ["40 °C", `${fmt(m40.t)} s · hot cell ${fmt(m40.Thot_max, 1)} °C · ${m40.t60 === null ? "finishes" : "stops"}`],
+    ["End of life, 25 °C", `${fmt(e.t)} s · ${fmt(e.Wh)} Wh`],
+    ["grp", "Checker"], ["Result", `${cnt.FAIL} FAIL · ${cnt.WARN} WARN · ${cnt.MARGINAL} MARGINAL (hot day, ${fmt(r.T_MAX - m40.Thot_max, 1)} K margin)`],
+  ];
+  const tb = $("#spec tbody"); tb.replaceChildren();
+  for (const [k, v] of rows) { const tr = document.createElement("tr");
+    if (k === "grp") { tr.className = "grp"; const th = document.createElement("th"); th.colSpan = 2; th.textContent = v; tr.appendChild(th); }
+    else { const th = document.createElement("th"); th.scope = "row"; th.textContent = k; const td = document.createElement("td"); td.textContent = v; tr.append(th, td); }
+    tb.appendChild(tr); }
+  // findings log, re-run here
+  const P42 = {cell: "Molicel P42A", NS: 4, NP: 4, busbar: "CuNi", cooling: "liquid", bal: "active"};
+  const Q30 = {cell: "Samsung 30Q", NS: 4, NP: 5, busbar: "CuNi", cooling: "liquid", bal: "active"};
+  const findings = [
+    ["v2 pick · 4S4P P28A, liquid", B.REFERENCE["Ablation 2a"], "R11", "add a fifth cell in parallel"],
+    ["v2 pick · 4S4P P28A, liquid", B.REFERENCE["Ablation 2a"], "R4 / C1", "derate rule and a radiator specification"],
+    ["Option 2 · liquid + foam + PCM", B.REFERENCE["Option 2"], "C12", "drop the PCM; it bought little margin anyway"],
+    ["4S4P Molicel P42A, liquid", P42, "C5", "keep the P28A for a 40 °C climate"],
+    ["4S5P Samsung 30Q, liquid", Q30, "C2", "reject: a 15 A cell for a 28 A branch"],
+    ["R-A · 4S5P P28A, standard BMS", B.REFERENCE["R-A 4S5P"], "C4", "low-loss FET path and a 0.25 mΩ shunt"],
+    ["R-B · 4S5P P28A, low-loss BMS", cfg, "C10", "recommended; build and bench-test this"],
+  ];
+  const lb = $("#log tbody"); lb.replaceChildren();
+  for (const [name, c2, rule, led] of findings) {
+    const q = B.quickEval(c2), v = q.verdicts.find(x => x[0] === rule);
+    const tr = document.createElement("tr");
+    const t0 = document.createElement("td"); t0.textContent = name;
+    const t1 = document.createElement("td"); t1.className = "rid"; t1.textContent = rule;
+    const t2 = document.createElement("td"); t2.appendChild(pill(v[2]));
+    const t3 = document.createElement("td"); t3.className = "mono"; t3.style.fontSize = "12px"; t3.textContent = units(v[3].split(";")[0]);
+    const t4 = document.createElement("td"); t4.textContent = led;
+    tr.append(t0, t1, t2, t3, t4); lb.appendChild(tr);
+  }
+  enableDrag($("#hero3d"), () => HERO, heroDraw);
+  const reduce = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  if (reduce) { HERO.i = HERO.curve.reduce((bi, p, i, a) => p[1] > a[bi][1] ? i : bi, 0); heroDraw(); }
+  else HERO.raf = requestAnimationFrame(heroTick);
+}
+function heroDraw() {
+  const p = HERO.curve[Math.max(0, Math.min(Math.floor(HERO.i), HERO.curve.length - 1))] || [0, 40, 0];
+  render3D($("#hero3d"), HERO.sc, {yaw: HERO.yaw, elev: 0.78, legendY: $("#hero3d").clientHeight - 30, Thot: p[1], Tavg: avgFromHot(p[1], HERO.tsink, HERO.f), legend: true});
+  $("#ro-t").textContent = fmt(p[0]); $("#ro-T").textContent = fmt(p[1], 1); $("#ro-V").textContent = fmt(p[2], 2);
+  $("#ro-bar").style.width = (100 * p[0] / HERO.curve[HERO.curve.length - 1][0]) + "%";
+}
+function heroTick(ts) {
+  if (!$("#view-home").hidden && !document.hidden) {
+    const dt = HERO.last ? Math.min(0.1, (ts - HERO.last) / 1000) : 0;
+    if (!HERO.dragging) HERO.yaw += dt * 0.18;
+    HERO.i += dt * 60;                                   // about 12 s for the 760 s mission
+    if (HERO.i >= HERO.curve.length + 90) HERO.i = 0;    // hold the final state briefly, then replay
+    heroDraw();
+  }
+  HERO.last = ts; HERO.raf = requestAnimationFrame(heroTick);
+}
+
+// ---- routing: #home (default) and #checker ----
+let checkerStarted = false;
+function route() {
+  const v = location.hash === "#checker" ? "checker" : "home";
+  $("#view-home").hidden = v !== "home"; $("#view-checker").hidden = v !== "checker";
+  $("#nav-home").toggleAttribute("aria-current", v === "home"); if (v === "home") $("#nav-home").setAttribute("aria-current", "page");
+  $("#nav-checker").toggleAttribute("aria-current", v === "checker"); if (v === "checker") $("#nav-checker").setAttribute("aria-current", "page");
+  if (v === "checker") {
+    if (!checkerStarted) { checkerStarted = true; run(); setTimeout(() => { runSearch(); setTimeout(runUQ, 200); }, 100); }
+    else { drawCharts(); renderSearch(); }
+    window.scrollTo(0, 0);
+  } else heroDraw();
+}
+$("#to-how").addEventListener("click", ev => { ev.preventDefault(); const t = $("#how"); t.scrollIntoView({behavior: "smooth", block: "start"}); t.focus({preventScroll: true}); });
+
+
+// ---- design review export: one markdown page a reviewer can paste anywhere ----
+function reviewText() {
+  const m = mission(), L = [];
+  L.push(`# BESS-Twin design review`, ``, `Mission: ${m.burst} A for ${m.burst_s} s every ${m.period_s} s on a ${m.base} A base load, until a limit trips. Coolant ${B.P.sink_offset_liquid} K above ambient. ${state.calibName ? "Calibrated from " + state.calibName + "." : "Assumption-based values (no bench data loaded)."}`, ``);
+  L.push(`| | Design A | Design B |`, `|---|---|---|`);
+  const A = state.res.A, Bv = state.res.B, row = (k, f) => L.push(`| ${k} | ${f(A)} | ${f(Bv)} |`);
+  row("Configuration", r => r.label);
+  row("Nominal", r => `${fmt(r.geom.E_nom_Wh)} Wh`);
+  row("25 °C mission", r => `${fmt(r.mission25.t)} s, ${fmt(r.mission25.Wh)} Wh, hot cell ${fmt(r.mission25.Thot_max, 1)} °C`);
+  row("40 °C mission", r => `${fmt(r.mission40.t)} s, ${r.mission40.reason}`);
+  row("End of life", r => `${fmt(r.mission25_eol.t)} s, ${fmt(r.mission25_eol.Wh)} Wh`);
+  row("Mass, cost, volume", r => `${r.bom.mass_module} g, ₹${B.inr(r.bom.inr_module)}, ${fmt(r.geom.volume_L, 2)} L`);
+  row("Overall (C10)", r => r.verdicts.find(v => v[0] === "C10")[2]);
+  L.push(``, `## Rule checks`, ``, `| Rule | What is checked | A | B |`, `|---|---|---|---|`);
+  const ids = []; for (const r of [A, Bv]) for (const v of r.verdicts) if (!ids.includes(v[0])) ids.push(v[0]);
+  for (const id of ids) { const a = A.verdicts.find(v => v[0] === id), b = Bv.verdicts.find(v => v[0] === id);
+    L.push(`| ${id} | ${units((a || b)[1])} | ${a ? a[2] + ": " + units(a[3]) : "n/a"} | ${b ? b[2] + ": " + units(b[3]) : "n/a"} |`); }
+  L.push(``, `## Traceability, design A`, ``, `| Req. | Component | Assumption | Result | Evidence needed | Status |`, `|---|---|---|---|---|---|`);
+  for (const t of A.trace) L.push(`| ${t[0]} | ${t[1]} | ${t[2]} | ${units(t[4])} | ${t[5]} | ${t[6]} |`);
+  L.push(``, `Generated by bess_dashboard.html (engine v3.0, same equations as bess_platform.py).`);
+  return L.join("\n");
+}
+$("#copy-review").addEventListener("click", async () => {
+  const txt = reviewText();
+  try { await navigator.clipboard.writeText(txt); $("#review-box").hidden = true; setStatus("Design review copied as Markdown."); }
+  catch (e) { $("#review-out").value = txt; $("#review-box").hidden = false; $("#review-out").focus(); $("#review-out").select(); setStatus("Copy was blocked; the review text is shown under the button."); }
+});
+
+// ---- wiring ----
+buildCard("A"); buildCard("B"); syncCard("A"); syncCard("B");
+for (const id of ["#m-burst", "#m-base", "#m-bs", "#m-ps", "#p-sink", "#p-f"]) $(id).addEventListener("change", schedule);
+document.querySelectorAll("#view button").forEach(b => b.addEventListener("click", () => {
+  state.view = b.dataset.v; document.querySelectorAll("#view button").forEach(x => x.setAttribute("aria-pressed", String(x === b))); drawCharts(); draw3DCard("A"); draw3DCard("B"); }));
+$("#calib").addEventListener("change", ev => {
+  const f = ev.target.files[0]; if (!f) return;
+  const rd = new FileReader();
+  rd.onload = () => { try { B.loadCalibration(JSON.parse(rd.result)); state.calibName = f.name; schedule(); }
+    catch (e) { setStatus("That file is not a calibration JSON (" + e.message + "). Use the calib.json written by calibrate.py."); } };
+  rd.readAsText(f);
+});
+$("#reset-calib").addEventListener("click", () => { B.loadCalibration({}); state.calibName = null; $("#calib").value = ""; schedule(); });
+let rz = null; window.addEventListener("resize", () => { clearTimeout(rz); rz = setTimeout(() => {
+  if (checkerStarted) { drawCharts(); renderSearch(); draw3DCard("A"); draw3DCard("B"); } heroDraw(); }, 120); });
+heroInit();
+window.addEventListener("hashchange", route);
+route();
+})();
+</script>
+</body>
+</html>

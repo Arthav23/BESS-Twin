@@ -1,0 +1,12 @@
+{
+ "_comment": "Design-space exploration: the checker flagged R11 (end of life) and C2 (branch current) on every 4S4P design. Same mission and requirements, different cell and parallel count.",
+ "sensitivity_for": null,
+ "designs": {
+  "2a 4S4P P28A":  {"cell": "Molicel P28A", "NS": 4, "NP": 4, "busbar": "CuNi", "cooling": "liquid",  "bal": "active"},
+  "2a 4S5P P28A":  {"cell": "Molicel P28A", "NS": 4, "NP": 5, "busbar": "CuNi", "cooling": "liquid",  "bal": "active"},
+  "2b 4S5P P28A":  {"cell": "Molicel P28A", "NS": 4, "NP": 5, "busbar": "CuNi", "cooling": "hbtms47", "bal": "active"},
+  "2a 4S3P P42A":  {"cell": "Molicel P42A", "NS": 4, "NP": 3, "busbar": "CuNi", "cooling": "liquid",  "bal": "active"},
+  "2a 4S4P P42A":  {"cell": "Molicel P42A", "NS": 4, "NP": 4, "busbar": "CuNi", "cooling": "liquid",  "bal": "active"},
+  "2a 4S5P 30Q":   {"cell": "Samsung 30Q",  "NS": 4, "NP": 5, "busbar": "CuNi", "cooling": "liquid",  "bal": "active"}
+ }
+}

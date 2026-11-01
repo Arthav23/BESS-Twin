@@ -1,0 +1,6 @@
+# SYNTHETIC DATA from make_synthetic.py - not a measurement
+branch,busbar,I_A,drop_mV
+1,Ni,10.0,18.24
+2,Ni,10.0,23.66
+3,Ni,10.0,21.41
+4,Ni,10.0,27.21
