@@ -4,7 +4,7 @@
 
 **Live demo: https://arthav23.github.io/BESS-Twin/** (one offline HTML file; also in this repo as [`docs/index.html`](docs/index.html))
 
-> **Status, stated plainly.** Every result here is simulated, or checked against published P28A data. The bench tests in [`bench/`](bench/BENCH_TEST_GUIDE.md) and the user interviews in [`INTERVIEW_KIT.md`](INTERVIEW_KIT.md) are **not run yet**. Values that rest on an assumption keep their `ASM` tag until they are measured.
+> **Status, stated plainly.** Every result here is simulated, or checked against published P28A data. The bench tests in [`bench/`](bench/BENCH_TEST_GUIDE.md) and the user interviews in [`INTERVIEW_KIT.md`](INTERVIEW_KIT.md) are **not run yet**. Values that rest on an assumption keep a their `ASM` tag until they are measured.
 
 ![BESS-Twin overview: a rotating 3D model of the recommended module, cells coloured by simulated temperature during a 40 °C mission](docs/screenshots/01-overview.png)
 
